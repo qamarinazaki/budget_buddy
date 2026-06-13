@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
+import 'app_data_manager.dart';
 
 class AnalyticsReport extends StatefulWidget {
   const AnalyticsReport({super.key});
@@ -101,7 +102,7 @@ class _AnalyticsReportState extends State<AnalyticsReport> {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text('Student Analytics', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Analytics & Reports', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         elevation: 0,
         foregroundColor: Colors.black,
@@ -131,39 +132,40 @@ class _AnalyticsReportState extends State<AnalyticsReport> {
             ),
             const SizedBox(height: 12),
             // 4 Small Summary Cards in a row
-            GridView.count(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: 4,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 8,
-              childAspectRatio: 0.85,
-              children: [
-                _buildSummaryCard(
-                  'Spending',
-                  '\$1,250',
-                  Icons.arrow_upward,
-                  Colors.redAccent,
-                ),
-                _buildSummaryCard(
-                  'Income',
-                  '\$2,100',
-                  Icons.account_balance_wallet,
-                  Colors.green,
-                ),
-                _buildSummaryCard(
-                  'Savings',
-                  '40.5%',
-                  Icons.savings,
-                  Colors.blue,
-                ),
-                _buildSummaryCard(
-                  'Overspent',
-                  'Food',
-                  Icons.warning_amber_rounded,
-                  Colors.orange,
-                ),
-              ],
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Spending Insights",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 10),
+                  Text(
+                    "Total Expenses: RM ${AppDataManager.totalExpense.toStringAsFixed(2)}",
+                  ),
+
+                  Text(
+                    "Total Income: RM ${AppDataManager.totalIncome.toStringAsFixed(2)}",
+                  ),
+
+                  Text(
+                    "Total Transactions: ${AppDataManager.expenseRecords.length}",
+                  ),
+
+                  Text(
+                    "Current Savings: RM ${(AppDataManager.totalIncome - AppDataManager.totalExpense).toStringAsFixed(2)}",
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 32),
             const Center(
@@ -183,12 +185,45 @@ class _AnalyticsReportState extends State<AnalyticsReport> {
             _buildCategoryList(),
             const SizedBox(height: 32),
             // Download Report Button
+            const SizedBox(height: 32),
+
+            const Text(
+              "Monthly Trend",
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+
+            const SizedBox(height: 15),
+
+            Container(
+              height: 180,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Center(
+                child: Text(
+                  "Monthly Expense Trend Chart",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 32),
+
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Downloading report...')),
+                    const SnackBar(
+                      content: Text('Downloading report...'),
+                    ),
                   );
                 },
                 icon: const Icon(Icons.download_rounded),
@@ -203,6 +238,7 @@ class _AnalyticsReportState extends State<AnalyticsReport> {
                 ),
               ),
             ),
+
             const SizedBox(height: 24),
           ],
         ),
@@ -248,14 +284,45 @@ class _AnalyticsReportState extends State<AnalyticsReport> {
   }
 
   Widget _buildPieChart() {
+    Map<String, double> categoryTotals = {};
+
+    for (var expense in AppDataManager.expenseRecords) {
+
+      String category = expense["category"];
+
+      double amount =
+      (expense["amount"] as num).toDouble();
+
+      categoryTotals[category] =
+          (categoryTotals[category] ?? 0) + amount;
+    }
     final categories = [
-      {'name': 'Food & Dining', 'amount': 450.0, 'color': Colors.orange},
-      {'name': 'Textbooks', 'amount': 320.0, 'color': Colors.blue},
-      {'name': 'Entertainment', 'amount': 150.0, 'color': Colors.purple},
-      {'name': 'Transport', 'amount': 80.0, 'color': Colors.green},
+      {
+        'name': 'Food',
+        'amount': categoryTotals['Food'] ?? 0,
+        'color': Colors.orange,
+      },
+      {
+        'name': 'Transport',
+        'amount': categoryTotals['Transport'] ?? 0,
+        'color': Colors.green,
+      },
+      {
+        'name': 'Printing',
+        'amount': categoryTotals['Printing'] ?? 0,
+        'color': Colors.blue,
+      },
+      {
+        'name': 'Entertainment',
+        'amount': categoryTotals['Entertainment'] ?? 0,
+        'color': Colors.purple,
+      },
     ];
 
-    double total = categories.fold(0, (sum, item) => sum + (item['amount'] as double));
+    double total = categories.fold(
+      0.0,
+          (sum, item) => sum + (item['amount'] as double),
+    );
 
     return Center(
       child: Container(
@@ -283,7 +350,9 @@ class _AnalyticsReportState extends State<AnalyticsReport> {
               runSpacing: 8,
               alignment: WrapAlignment.center,
               children: categories.map((cat) {
-                double percentage = ((cat['amount'] as double) / total) * 100;
+                double percentage = total == 0
+                    ? 0
+                    : ((cat['amount'] as double) / total) * 100;
                 return Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -311,12 +380,46 @@ class _AnalyticsReportState extends State<AnalyticsReport> {
   }
 
   Widget _buildCategoryList() {
+    Map<String, double> categoryTotals = {};
+
+    for (var expense in AppDataManager.expenseRecords) {
+
+      String category = expense["category"];
+
+      double amount =
+      (expense["amount"] as num).toDouble();
+
+      categoryTotals[category] =
+          (categoryTotals[category] ?? 0) + amount;
+    }
+
     final categories = [
-      {'name': 'Food & Dining', 'amt': '\$450', 'pct': 0.9, 'color': Colors.orange},
-      {'name': 'Textbooks', 'amt': '\$320', 'pct': 0.7, 'color': Colors.blue},
-      {'name': 'Entertainment', 'amt': '\$150', 'pct': 0.4, 'color': Colors.purple},
-      {'name': 'Transport', 'amt': '\$80', 'pct': 0.2, 'color': Colors.green},
+      {
+        'name': 'Food',
+        'amount': categoryTotals['Food'] ?? 0,
+        'color': Colors.orange,
+      },
+      {
+        'name': 'Transport',
+        'amount': categoryTotals['Transport'] ?? 0,
+        'color': Colors.green,
+      },
+      {
+        'name': 'Printing',
+        'amount': categoryTotals['Printing'] ?? 0,
+        'color': Colors.blue,
+      },
+      {
+        'name': 'Entertainment',
+        'amount': categoryTotals['Entertainment'] ?? 0,
+        'color': Colors.purple,
+      },
     ];
+    double totalExpense =
+    categoryTotals.values.fold(
+      0.0,
+          (sum, item) => sum + item,
+    );
 
     return Column(
       children: categories.map((cat) {
@@ -340,12 +443,20 @@ class _AnalyticsReportState extends State<AnalyticsReport> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(cat['name'] as String, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        Text(cat['amt'] as String, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                        Text(
+                          "RM ${(cat['amount'] as double).toStringAsFixed(2)}",
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey,
+                          ),
+                        )
                       ],
                     ),
                     const SizedBox(height: 8),
                     LinearProgressIndicator(
-                      value: cat['pct'] as double,
+                      value: totalExpense == 0
+                          ? 0
+                          : (cat['amount'] as double) / totalExpense,
                       backgroundColor: Colors.grey[100],
                       color: cat['color'] as Color,
                       minHeight: 6,

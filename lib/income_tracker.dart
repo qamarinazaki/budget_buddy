@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'app_data_manager.dart';
 
 class IncomeTracker extends StatefulWidget {
   const IncomeTracker({super.key});
@@ -133,7 +134,7 @@ class _IncomeTrackerState extends State<IncomeTracker> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Add Income', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.indigo)),
+            const Text('Add Income', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFC2185B))),
             const SizedBox(height: 20),
             TextField(
               controller: sourceController,
@@ -158,23 +159,41 @@ class _IncomeTrackerState extends State<IncomeTracker> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  if (sourceController.text.isNotEmpty && amountController.text.isNotEmpty) {
+                  if (sourceController.text.isNotEmpty &&
+                      amountController.text.isNotEmpty) {
+
+                    double amount =
+                        double.tryParse(amountController.text) ?? 0.0;
+
                     setState(() {
                       _incomes.insert(0, {
                         'source': sourceController.text,
-                        'amount': double.tryParse(amountController.text) ?? 0.0,
+                        'amount': amount,
                         'date': DateTime.now(),
                       });
+
+                      AppDataManager.addIncome(
+                        sourceController.text,
+                        amount,
+                      );
                     });
+
                     Navigator.pop(context);
                   }
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.indigo,
+                  backgroundColor: const Color(0xFFFFB6C1),
+                  foregroundColor: const Color(0xFFC2185B),
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                child: const Text('Save Income', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                child: const Text(
+                  'Save Income',
+                  style: TextStyle(
+                    color: Color(0xFFC2185B),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 24),
@@ -206,7 +225,14 @@ class _IncomeTrackerState extends State<IncomeTracker> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Edit Income', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.indigo)),
+                const Text(
+                  'Edit Income',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFFC2185B),
+                  ),
+                ),
                 IconButton(
                   onPressed: () {
                     setState(() {
@@ -251,11 +277,12 @@ class _IncomeTrackerState extends State<IncomeTracker> {
                   }
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.indigo,
+                    backgroundColor: const Color(0xFFFFB6C1),
+                    foregroundColor: const Color(0xFFC2185B),
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                child: const Text('Update Income', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                child: const Text('Update Income', style: TextStyle(color: Color(0xFFC2185B), fontWeight: FontWeight.bold)),
               ),
             ),
             const SizedBox(height: 24),
@@ -275,7 +302,7 @@ class _IncomeTrackerState extends State<IncomeTracker> {
         title: const Text('Income Tracker', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         elevation: 0,
-        foregroundColor: Colors.indigo,
+        foregroundColor: const Color(0xFFC2185B),
         centerTitle: true,
       ),
       body: Column(
@@ -292,7 +319,8 @@ class _IncomeTrackerState extends State<IncomeTracker> {
                 ),
                 IconButton(
                   onPressed: () => _selectMonth(context),
-                  icon: const Icon(Icons.calendar_month_outlined, color: Colors.indigo),
+                  icon: const Icon(Icons.calendar_month_outlined,
+                    color: Color(0xFFC2185B),),
                   tooltip: 'Select Month',
                 ),
               ],
@@ -305,14 +333,15 @@ class _IncomeTrackerState extends State<IncomeTracker> {
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Colors.indigo, Colors.blueAccent],
+                colors: [Color(0xFFFFB6C1),
+                  Color(0xFFC2185B),],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.indigo.withValues(alpha: 0.3),
+                color: const Color(0xFFC2185B).withValues(alpha: 0.25),
                   blurRadius: 10,
                   offset: const Offset(0, 5),
                 ),
@@ -375,8 +404,11 @@ class _IncomeTrackerState extends State<IncomeTracker> {
                         elevation: 2,
                         child: ListTile(
                           leading: const CircleAvatar(
-                            backgroundColor: Color(0xFFE8F5E9),
-                            child: Icon(Icons.add, color: Colors.green),
+                            backgroundColor: Color(0xFFFFB6C1),
+                            child: Icon(
+                              Icons.add,
+                              color: Color(0xFFC2185B),
+                            ),
                           ),
                           title: Text(
                             income['source'],
@@ -389,7 +421,7 @@ class _IncomeTrackerState extends State<IncomeTracker> {
                               Text(
                                 '+\$${income['amount'].toStringAsFixed(2)}',
                                 style: const TextStyle(
-                                  color: Colors.green,
+                                  color: Color(0xFFC2185B),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
                                 ),
@@ -412,7 +444,7 @@ class _IncomeTrackerState extends State<IncomeTracker> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showAddIncomeDialog,
-        backgroundColor: Colors.indigo,
+        backgroundColor: const Color(0xFFC2185B),
         child: const Icon(Icons.add, color: Colors.white),
       ),
     );
