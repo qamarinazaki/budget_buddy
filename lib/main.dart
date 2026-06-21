@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'firebase_options.dart';
+
 
 import 'dashboard.dart';
 import 'budget_plan.dart';
@@ -10,8 +14,16 @@ import 'campus_deals.dart';
 import 'reward.dart';
 import 'analytics_report.dart';
 import 'setting.dart';
+import 'profile.dart';
+import 'login_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
   runApp(const BudgetBuddyApp());
 }
 
@@ -27,18 +39,47 @@ class BudgetBuddyApp extends StatelessWidget {
         useMaterial3: true,
         scaffoldBackgroundColor: Colors.white,
       ),
-      home: const MainDashboard(),
+      home: StreamBuilder<User?>(
+        stream: FirebaseAuth.instance.authStateChanges(),
+        builder: (context, snapshot) {
+
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              body: Center(
+                child: CircularProgressIndicator(),
+              ),
+            );
+          }
+
+          if (snapshot.hasData) {
+            return MainDashboard(
+              userName: snapshot.data?.displayName ?? 'User',
+              userEmail: snapshot.data?.email ?? '',
+            );
+          }
+
+          return const LoginScreen();
+        },
+      ),
     );
   }
 }
 
 class MainDashboard extends StatefulWidget {
-  const MainDashboard({super.key});
+
+  final String userName;
+  final String userEmail;
+
+  const MainDashboard({
+    super.key,
+    required this.userName,
+    required this.userEmail,
+  });
 
   @override
-  State<MainDashboard> createState() => _MainDashboardState();
+  State<MainDashboard> createState() =>
+      _MainDashboardState();
 }
-
 class _MainDashboardState extends State<MainDashboard> {
   int _selectedIndex = 0;
 
@@ -46,7 +87,10 @@ class _MainDashboardState extends State<MainDashboard> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: _selectedIndex == 0
-          ? _buildHomePage()
+          ? BudgetBuddyDashboard(
+        userName: widget.userName,
+        userEmail: widget.userEmail,
+      )
           : _selectedIndex == 1
           ? const ExpenseTrackerPage()
           : _selectedIndex == 2
@@ -68,8 +112,8 @@ class _MainDashboardState extends State<MainDashboard> {
 
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: "Home",
+            icon: Icon(Icons.dashboard),
+            label: "Dashboard",
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.receipt_long),
@@ -88,265 +132,47 @@ class _MainDashboardState extends State<MainDashboard> {
     );
   }
 
-  Widget _buildHomePage() {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          "Budget Buddy",
-          style: TextStyle(
-            color: Color(0xFFC2185B),
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        centerTitle: true,
-        backgroundColor: Colors.white,
-      ),
-
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-
-            // Welcome Card
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFB6C1),
-                borderRadius: BorderRadius.circular(25),
-              ),
-              child: const Column(
-                children: [
-                  CircleAvatar(
-                    radius: 35,
-                    backgroundColor: Colors.white,
-                    child: Icon(
-                      Icons.person,
-                      size: 40,
-                      color: Color(0xFFC2185B),
-                    ),
-                  ),
-
-                  SizedBox(height: 12),
-
-                  Text(
-                    "Welcome Back 👋",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                    ),
-                  ),
-
-                  SizedBox(height: 8),
-
-                  Text(
-                    "Student Financial Assistant",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 22,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // Student Profile
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.person),
-                title: const Text("Student User"),
-                subtitle: const Text(
-                  "Software Engineering • Year 3",
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 15),
-
-            // Financial Quote
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: const Text(
-                  '"Small savings today create bigger opportunities tomorrow."',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontStyle: FontStyle.italic,
-                    fontSize: 16,
-                  ),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 15),
-
-            // Financial Snapshot
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: const [
-                  BoxShadow(
-                    blurRadius: 8,
-                    color: Colors.black12,
-                  ),
-                ],
-              ),
-              child: const Column(
-                children: [
-
-                  Text(
-                    "Financial Snapshot",
-                    style: TextStyle(
-                      color: Color(0xFFC2185B),
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-
-                  SizedBox(height: 15),
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-
-                      Column(
-                        children: [
-                          Icon(Icons.account_balance_wallet),
-                          SizedBox(height: 5),
-                          Text("RM 1200"),
-                          Text("Balance"),
-                        ],
-                      ),
-
-                      Column(
-                        children: [
-                          Icon(Icons.savings),
-                          SizedBox(height: 5),
-                          Text("RM 500"),
-                          Text("Savings"),
-                        ],
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 15),
-
-            // Upcoming Bills
-            Card(
-              child: Column(
-                children: const [
-
-                  ListTile(
-                    leading: Icon(
-                      Icons.wifi,
-                      color: Colors.orange,
-                    ),
-                    title: Text("Internet"),
-                    subtitle: Text("Due: 25 June"),
-                  ),
-
-                  Divider(),
-
-                  ListTile(
-                    leading: Icon(
-                      Icons.home,
-                      color: Colors.red,
-                    ),
-                    title: Text("Room Rental"),
-                    subtitle: Text("Due: 30 June"),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 15),
-
-            // Recent Activity
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: const [
-                  BoxShadow(
-                    blurRadius: 8,
-                    color: Colors.black12,
-                  ),
-                ],
-              ),
-              child: const Column(
-                children: [
-
-                  Text(
-                    "Recent Activity",
-                    style: TextStyle(
-                      color: Color(0xFFC2185B),
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-
-                  SizedBox(height: 15),
-
-                  ListTile(
-                    leading: Icon(
-                      Icons.check_circle,
-                      color: Colors.green,
-                    ),
-                    title: Text("Income Added"),
-                  ),
-
-                  ListTile(
-                    leading: Icon(
-                      Icons.check_circle,
-                      color: Colors.orange,
-                    ),
-                    title: Text("Budget Updated"),
-                  ),
-
-                  ListTile(
-                    leading: Icon(
-                      Icons.check_circle,
-                      color: Colors.purple,
-                    ),
-                    title: Text("Saving Goal Updated"),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 20),
-          ],
-        ),
-      ),
-    );
-  }
   Widget _buildMorePage() {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        elevation: 0,
+        centerTitle: true,
         title: const Text(
           "More",
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
         ),
-        centerTitle: true,
-        backgroundColor: Colors.white,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(
+            height: 1,
+            color: Colors.grey.shade300,
+          ),
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
 
-          Card(
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
             child: ListTile(
               leading: const Icon(
                 Icons.add_chart,
@@ -365,7 +191,19 @@ class _MainDashboardState extends State<MainDashboard> {
             ),
           ),
 
-          Card(
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
             child: ListTile(
               leading: const Icon(
                 Icons.notifications_active,
@@ -384,7 +222,19 @@ class _MainDashboardState extends State<MainDashboard> {
             ),
           ),
 
-          Card(
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
             child: ListTile(
               leading: const Icon(
                 Icons.local_offer,
@@ -403,7 +253,19 @@ class _MainDashboardState extends State<MainDashboard> {
             ),
           ),
 
-          Card(
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
             child: ListTile(
               leading: const Icon(
                 Icons.forum,
@@ -421,25 +283,20 @@ class _MainDashboardState extends State<MainDashboard> {
               },
             ),
           ),
-          Card(
-            child: ListTile(
-              leading: const Icon(
-                Icons.dashboard,
-                color: Color(0xFFC2185B),
-              ),
-              title: const Text("Dashboard"),
-              trailing: const Icon(Icons.arrow_forward_ios),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const BudgetBuddyDashboard(),
-                  ),
-                );
-              },
+
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
-          ),
-          Card(
             child: ListTile(
               leading: const Icon(
                 Icons.analytics,
@@ -457,7 +314,20 @@ class _MainDashboardState extends State<MainDashboard> {
               },
             ),
           ),
-          Card(
+
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
             child: ListTile(
               leading: const Icon(
                 Icons.card_giftcard,
@@ -476,7 +346,19 @@ class _MainDashboardState extends State<MainDashboard> {
             ),
           ),
 
-          Card(
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
             child: ListTile(
               leading: const Icon(
                 Icons.person,
@@ -484,10 +366,33 @@ class _MainDashboardState extends State<MainDashboard> {
               ),
               title: const Text("Profile"),
               trailing: const Icon(Icons.arrow_forward_ios),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ProfileScreen(
+                      userName: widget.userName,
+                      userEmail: widget.userEmail,
+                    ),
+                  ),
+                );
+              },
             ),
           ),
 
-          Card(
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
             child: ListTile(
               leading: const Icon(
                 Icons.settings,

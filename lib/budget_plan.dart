@@ -1,12 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'app_data_manager.dart';
-import 'saving_goals.dart';
 
 class BudgetPage extends StatefulWidget {
-  const BudgetPage({super.key});
+
+  final bool scrollToGoals;
+
+  const BudgetPage({
+    super.key,
+    this.scrollToGoals = false,
+  });
 
   @override
-  State<BudgetPage> createState() => _BudgetPageState();
+  State<BudgetPage> createState() =>
+      _BudgetPageState();
 }
 
 class _BudgetPageState extends State<BudgetPage> {
@@ -20,6 +28,8 @@ class _BudgetPageState extends State<BudgetPage> {
   double pengajianLimit = 0.0;
   double perubatanLimit = 0.0;
   double lainLainLimit = 0.0;
+  final GlobalKey _goalsKey =
+  GlobalKey();
 
   double getCategoryExpense(String category) {
     double total = 0;
@@ -55,26 +65,67 @@ class _BudgetPageState extends State<BudgetPage> {
 
 
   void _addNewGoal() {
+
     if (_newGoalNameController.text.isEmpty ||
         _newGoalTargetController.text.isEmpty) {
-      _showSnackBar("Please enter a goal name and target amount!");
+
+      _showSnackBar(
+        "Please enter a goal name and target amount!",
+      );
+      return;
+    }
+
+    final targetAmount =
+    double.tryParse(
+      _newGoalTargetController.text,
+    );
+
+    if (targetAmount == null) {
+
+      _showSnackBar(
+        "Target amount must be a valid number.",
+      );
+      return;
+    }
+
+    if (targetAmount <= 0) {
+
+      _showSnackBar(
+        "Target amount must be greater than 0.",
+      );
       return;
     }
 
     AppDataManager.addSavingGoal(
       _newGoalNameController.text,
-      double.tryParse(
-        _newGoalTargetController.text,
-      ) ??
-          0,
+      targetAmount,
       0,
     );
+
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user != null) {
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('saving_goals')
+          .add({
+        'name': _newGoalNameController.text,
+        'target': targetAmount,
+        'saved': 0.0,
+      });
+    }
 
     setState(() {});
 
     _newGoalNameController.clear();
     _newGoalTargetController.clear();
+
+    _showSnackBar(
+      "Goal added successfully!",
+    );
   }
+
   void _showSnackBar(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
@@ -86,7 +137,7 @@ class _BudgetPageState extends State<BudgetPage> {
 
       showDialog(
         context: context,
-        builder: (context) {
+        builder: (dialogContext) {
           return AlertDialog(
             title: Text(
               "Add Savings to ${goal["name"]}",
@@ -102,28 +153,43 @@ class _BudgetPageState extends State<BudgetPage> {
 
               TextButton(
                 onPressed: () {
-                  Navigator.pop(context);
+                  Navigator.pop(dialogContext);
                 },
                 child: const Text("Cancel"),
               ),
 
               ElevatedButton(
-                onPressed: () {
+                onPressed: () async {
 
                   double amount =
                       double.tryParse(
                         amountController.text,
-                      ) ??
-                          0;
+                      ) ?? 0;
 
                   setState(() {
                     goal["saved"] =
-                        (goal["saved"] as num)
-                            .toDouble() +
+                        (goal["saved"] as num).toDouble() +
                             amount;
                   });
 
-                  Navigator.pop(context);
+                  final user =
+                      FirebaseAuth.instance.currentUser;
+
+                  if (user != null) {
+                    await FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(user.uid)
+                        .collection('saving_goals')
+                        .doc(goal["id"])
+                        .update({
+                      "saved": goal["saved"],
+                    });
+                  }
+
+                  if (!context.mounted) return;
+
+                  Navigator.pop(dialogContext);
+
                 },
                 child: const Text("Save"),
               ),
@@ -132,6 +198,195 @@ class _BudgetPageState extends State<BudgetPage> {
         },
       );
     }
+
+  void _showEditGoalDialog(
+      Map<String, dynamic> goal) {
+
+    final nameController =
+    TextEditingController(
+      text: goal["name"],
+    );
+
+    final targetController =
+    TextEditingController(
+      text: goal["target"].toString(),
+    );
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text("Edit Goal"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: "Goal Name",
+                ),
+              ),
+
+              TextField(
+                controller: targetController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: "Target Amount",
+                ),
+              ),
+            ],
+          ),
+          actions: [
+
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+              },
+              child: const Text("Cancel"),
+            ),
+
+            ElevatedButton(
+              onPressed: () async {
+
+                setState(() {
+                  goal["name"] =
+                      nameController.text;
+
+                  goal["target"] =
+                      double.tryParse(
+                        targetController.text,
+                      ) ??
+                          0;
+                });
+
+                final user =
+                    FirebaseAuth.instance.currentUser;
+
+                if (user != null) {
+                  await FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(user.uid)
+                      .collection('saving_goals')
+                      .doc(goal["id"])
+                      .update({
+                    "name": goal["name"],
+                    "target": goal["target"],
+                  });
+                }
+
+                if (!context.mounted) return;
+
+                Navigator.pop(dialogContext);
+
+                _showSnackBar(
+                  "Goal updated successfully",
+                );
+              },
+              child: const Text("Save"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> loadBudget() async {
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) return;
+
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('budget')
+        .doc('monthly_budget')
+        .get();
+
+    if (!doc.exists) return;
+
+    setState(() {
+      makananLimit =
+          (doc['food'] as num?)?.toDouble() ?? 0;
+
+      pengangkutanLimit =
+          (doc['transportation'] as num?)?.toDouble() ?? 0;
+
+      hiburanLimit =
+          (doc['entertainment'] as num?)?.toDouble() ?? 0;
+
+      pengajianLimit =
+          (doc['education'] as num?)?.toDouble() ?? 0;
+
+      perubatanLimit =
+          (doc['medical'] as num?)?.toDouble() ?? 0;
+
+      lainLainLimit =
+          (doc['others'] as num?)?.toDouble() ?? 0;
+
+      _makananController.text =
+          makananLimit.toStringAsFixed(2);
+
+      _pengangkutanController.text =
+          pengangkutanLimit.toStringAsFixed(2);
+
+      _hiburanController.text =
+          hiburanLimit.toStringAsFixed(2);
+
+      _pengajianController.text =
+          pengajianLimit.toStringAsFixed(2);
+
+      _perubatanController.text =
+          perubatanLimit.toStringAsFixed(2);
+
+      _lainController.text =
+          lainLainLimit.toStringAsFixed(2);
+
+      AppDataManager.foodBudget = makananLimit;
+      AppDataManager.transportBudget = pengangkutanLimit;
+      AppDataManager.entertainmentBudget = hiburanLimit;
+      AppDataManager.educationBudget = pengajianLimit;
+      AppDataManager.medicalBudget = perubatanLimit;
+      AppDataManager.othersBudget = lainLainLimit;
+
+      totalBudget =
+          makananLimit +
+              pengangkutanLimit +
+              hiburanLimit +
+              pengajianLimit +
+              perubatanLimit +
+              lainLainLimit;
+    });
+  }
+
+  Future<void> loadSavingGoals() async {
+
+    final user =
+        FirebaseAuth.instance.currentUser;
+
+    if (user == null) return;
+
+    final snapshot =
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('saving_goals')
+        .get();
+
+    AppDataManager.savingGoals.clear();
+
+    for (var doc in snapshot.docs) {
+
+      AppDataManager.savingGoals.add({
+        "id": doc.id,
+        "name": doc["name"],
+        "target": doc["target"],
+        "saved": doc["saved"],
+      });
+    }
+
+    setState(() {});
+  }
 
   @override
   void dispose() {
@@ -155,25 +410,52 @@ class _BudgetPageState extends State<BudgetPage> {
   @override
   void initState() {
     super.initState();
+    loadBudget();
+    loadSavingGoals();
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) {
 
-    makananLimit = AppDataManager.foodBudget;
+      if (widget.scrollToGoals) {
+
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+
+          final goalContext = _goalsKey.currentContext;
+
+          if (goalContext != null) {
+            Scrollable.ensureVisible(
+              goalContext,
+              duration: const Duration(milliseconds: 600),
+            );
+          }
+        });
+      }
+    });
+
+    /*makananLimit = AppDataManager.foodBudget;
     pengangkutanLimit = AppDataManager.transportBudget;
     hiburanLimit = AppDataManager.entertainmentBudget;
     pengajianLimit = AppDataManager.educationBudget;
     perubatanLimit = AppDataManager.medicalBudget;
     lainLainLimit = AppDataManager.othersBudget;
 
-    _makananController.text = makananLimit.toString();
+    _makananController.text =
+        makananLimit.toStringAsFixed(2);
+
     _pengangkutanController.text =
-        pengangkutanLimit.toString();
+        pengangkutanLimit.toStringAsFixed(2);
+
     _hiburanController.text =
-        hiburanLimit.toString();
+        hiburanLimit.toStringAsFixed(2);
+
     _pengajianController.text =
-        pengajianLimit.toString();
+        pengajianLimit.toStringAsFixed(2);
+
     _perubatanController.text =
-        perubatanLimit.toString();
+        perubatanLimit.toStringAsFixed(2);
+
     _lainController.text =
-        lainLainLimit.toString();
+        lainLainLimit.toStringAsFixed(2);*/
 
     totalBudget =
         makananLimit +
@@ -187,13 +469,26 @@ class _BudgetPageState extends State<BudgetPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        centerTitle: true,
         backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
         elevation: 0,
+        centerTitle: true,
         title: const Text(
-          'Budget Planner',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 18),
+          "Budget Planner",
+          style: TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(
+            height: 1,
+            color: Colors.grey.shade300,
+          ),
         ),
       ),
       body: SingleChildScrollView(
@@ -214,12 +509,32 @@ class _BudgetPageState extends State<BudgetPage> {
             _buildGoalInputSection(),
             const SizedBox(height: 25),
 
-            if (AppDataManager.savingGoals.isNotEmpty) ...[
-              const Text("Your Savings Goals", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 10),
-              ...AppDataManager.savingGoals.map((goal) => _buildGoalCard(goal)).toList(),
-              const SizedBox(height: 25),
-            ],
+            Container(
+              key: _goalsKey,
+              child: Column(
+                crossAxisAlignment:
+                CrossAxisAlignment.start,
+                children: [
+
+                  const Text(
+                    "Your Savings Goals",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight:
+                      FontWeight.bold,
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  ...AppDataManager.savingGoals
+                      .map((goal) =>
+                      _buildGoalCard(goal)),
+
+                  const SizedBox(height: 25),
+                ],
+              ),
+            ),
 
             const Text("Budget Planning Summary", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
@@ -255,7 +570,7 @@ class _BudgetPageState extends State<BudgetPage> {
       children: [
         const Text(
           "Important Notifications",
-          style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+          style: TextStyle(color: Color(0xFFAD1457), fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
         ...warnings,
@@ -270,10 +585,12 @@ class _BudgetPageState extends State<BudgetPage> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isCritical ? Colors.red.shade50 : Colors.orange.shade50,
+        color: isCritical
+            ? Colors.red.shade50
+            : Colors.orange.shade50,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: isCritical ? Colors.red.shade200 : Colors.orange.shade200),
       ),
+
       child: Row(
         children: [
           Icon(
@@ -287,9 +604,11 @@ class _BudgetPageState extends State<BudgetPage> {
                   ? "Budget exceeded for $category!"
                   : "$category budget is almost reached (${(percent * 100).toInt()}%)",
               style: TextStyle(
-                  color: isCritical ? Colors.red.shade900 : Colors.orange.shade900,
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold
+                color: isCritical
+                    ? Colors.red.shade800
+                    : Colors.orange.shade800,
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ),
@@ -342,7 +661,7 @@ class _BudgetPageState extends State<BudgetPage> {
             _lainController,
           ),
           const SizedBox(height: 10),
-          _buildActionButton("Save & Update", _updateBudget, Colors.pink),
+          _buildActionButton("Save & Update", _updateBudget, Color(0xFFC2185B)),
         ],
       ),
     );
@@ -399,7 +718,7 @@ class _BudgetPageState extends State<BudgetPage> {
           _buildTextField(_newGoalNameController, "Goal Name (e.g. Umrah)", Icons.flag, isText: true),
           _buildTextField(_newGoalTargetController, "Target Amount (RM)", Icons.track_changes),
           const SizedBox(height: 10),
-          _buildActionButton("Add Goal", _addNewGoal, const Color(0xFFC81858)),
+          _buildActionButton("Add Goal", _addNewGoal, const Color(0xFFC2185B)),
         ],
       ),
     );
@@ -431,12 +750,65 @@ class _BudgetPageState extends State<BudgetPage> {
         CrossAxisAlignment.start,
         children: [
 
-          Text(
-            goal["name"],
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-            ),
+          Row(
+            mainAxisAlignment:
+            MainAxisAlignment.spaceBetween,
+            children: [
+
+              Text(
+                goal["name"],
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+
+              Row(
+                children: [
+
+                  IconButton(
+                    icon: const Icon(
+                      Icons.edit,
+                      color: Colors.blue,
+                      size: 20,
+                    ),
+                    onPressed: () {
+                      _showEditGoalDialog(goal);
+                    },
+                  ),
+
+                  IconButton(
+                    icon: const Icon(
+                      Icons.delete,
+                      color: Colors.red,
+                      size: 20,
+                    ),
+                    onPressed: () async {
+
+                      final user =
+                          FirebaseAuth.instance.currentUser;
+
+                      if (user != null) {
+                        await FirebaseFirestore.instance
+                            .collection('users')
+                            .doc(user.uid)
+                            .collection('saving_goals')
+                            .doc(goal["id"])
+                            .delete();
+                      }
+
+                      setState(() {
+                        AppDataManager.savingGoals.remove(goal);
+                      });
+
+                      _showSnackBar(
+                        "Goal deleted",
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ],
           ),
 
           const SizedBox(height: 8),
@@ -531,6 +903,23 @@ class _BudgetPageState extends State<BudgetPage> {
     });
 
     _showSnackBar("Budget updated successfully!");
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user != null) {
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('budget')
+          .doc('monthly_budget')
+          .set({
+        'food': makananLimit,
+        'transportation': pengangkutanLimit,
+        'entertainment': hiburanLimit,
+        'education': pengajianLimit,
+        'medical': perubatanLimit,
+        'others': lainLainLimit,
+      });
+    }
   }
 
   // --- HELPERS ---
@@ -539,8 +928,23 @@ class _BudgetPageState extends State<BudgetPage> {
       padding: const EdgeInsets.all(20),
       width: double.infinity,
       decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [Colors.pink.shade700, Colors.pink.shade500]),
+        gradient: LinearGradient(
+          colors: [
+            Color(0xFFFFB6C1),
+            Color(0xFFC2185B),
+          ],
+        ),
         borderRadius: BorderRadius.circular(24),
+
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFAD1457)
+                .withValues(alpha: 0.25),
+            blurRadius: 20,
+            spreadRadius: 2,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -614,7 +1018,7 @@ class _BudgetPageState extends State<BudgetPage> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                    Text("RM ${used.toInt()} / RM ${limit.toInt()}", style: const TextStyle(fontSize: 12)),
+                    Text("RM ${used.toStringAsFixed(2)} / RM ${limit.toStringAsFixed(2)}", style: const TextStyle(fontSize: 12)),
                   ],
                 ),
                 const SizedBox(height: 5),

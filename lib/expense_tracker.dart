@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'app_data_manager.dart';
 
 class ExpenseTrackerPage extends StatefulWidget {
@@ -15,15 +17,49 @@ class _ExpenseTrackerPageState extends State<ExpenseTrackerPage> {
   final TextEditingController noteController =
   TextEditingController();
 
+  @override
+  void initState() {
+    super.initState();
+    loadExpenses();
+  }
+
+  Future<void> loadExpenses() async {
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) return;
+
+    final snapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('expenses')
+        .get();
+
+    AppDataManager.expenseRecords.clear();
+
+    for (var doc in snapshot.docs) {
+      AppDataManager.expenseRecords.add({
+        "category": doc["category"],
+        "amount": (doc["amount"] as num).toDouble(),
+        "date": (doc["date"] as Timestamp).toDate(),
+        "note": doc["note"] ?? "",
+      });
+    }
+
+    if (!mounted) return;
+
+    setState(() {});
+  }
+
   String selectedCategory = "Food";
   DateTime selectedDate = DateTime.now();
   DateTime selectedMonth = DateTime.now();
 
   final List<String> categories = [
     "Food",
-    "Transport",
-    "Printing",
+    "Transportation",
     "Entertainment",
+    "Education",
+    "Medical",
     "Others",
   ];
   final List<String> monthNames = [
@@ -40,52 +76,25 @@ class _ExpenseTrackerPageState extends State<ExpenseTrackerPage> {
     "November",
     "December",
   ];
-  Future<void> _pickDate() async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: selectedDate,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2100),
-    );
 
-    if (picked != null) {
-      setState(() {
-        selectedDate = picked;
-      });
-    }
-  }
-
-  /*Future<void> _pickMonth() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: selectedMonth,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2100),
-    );
-
-    if (picked != null) {
-      setState(() {
-        selectedMonth = DateTime(
-          picked.year,
-          picked.month,
-        );
-      });
-    }
-  }*/
 
   IconData getCategoryIcon(String category) {
     switch (category) {
+
       case "Food":
         return Icons.restaurant;
 
-      case "Transport":
+      case "Transportation":
         return Icons.directions_car;
-
-      case "Printing":
-        return Icons.print;
 
       case "Entertainment":
         return Icons.movie;
+
+      case "Education":
+        return Icons.school;
+
+      case "Medical":
+        return Icons.local_hospital;
 
       case "Others":
         return Icons.category;
@@ -130,6 +139,21 @@ class _ExpenseTrackerPageState extends State<ExpenseTrackerPage> {
       "note": noteController.text,
     });
 
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user != null) {
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('expenses')
+          .add({
+        'category': selectedCategory,
+        'amount': amount,
+        'date': Timestamp.fromDate(selectedDate),
+        'note': noteController.text,
+      });
+    }
+
     AppDataManager.totalExpense += amount;
 
     AppDataManager.rewardPoints.value += 1;
@@ -147,18 +171,261 @@ class _ExpenseTrackerPageState extends State<ExpenseTrackerPage> {
       noteController.clear();
     });
   }
+  void _showAddExpenseDialog() {
 
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text("Add Expense"),
+
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+
+
+                const SizedBox(height: 12),
+
+                TextField(
+                  controller: amountController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: "Amount (RM)",
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                DropdownButtonFormField<String>(
+                  value: selectedCategory,
+                  decoration: const InputDecoration(
+                    labelText: "Category",
+                    border: OutlineInputBorder(),
+                  ),
+                  items: categories.map((category) {
+                    return DropdownMenuItem(
+                      value: category,
+                      child: Text(category),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    selectedCategory = value!;
+                  },
+                ),
+
+                const SizedBox(height: 12),
+
+                InkWell(
+                  onTap: () async {
+                    DateTime? pickedDate =
+                    await showDatePicker(
+                    context: context,
+                    initialDate: selectedDate,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime(2100),
+                    );
+
+                    if (pickedDate != null) {
+                    setState(() {
+                    selectedDate = pickedDate;
+                    });
+                    }
+
+                  },
+
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 15,
+                    ),
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: Colors.grey,
+                      ),
+                      borderRadius:
+                      BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      "${selectedDate.day}/${selectedDate.month}/${selectedDate.year}",
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                TextField(
+                  controller: noteController,
+                  decoration: const InputDecoration(
+                    labelText: "Note",
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          actions: [
+
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text("Cancel"),
+            ),
+
+            ElevatedButton(
+              onPressed: () {
+
+                _saveExpense();
+
+                Navigator.pop(context);
+              },
+              child: const Text("Save"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+  void _showMonthPicker() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Row(
+            mainAxisAlignment:
+            MainAxisAlignment.spaceBetween,
+            children: [
+
+              IconButton(
+                icon: const Icon(
+                  Icons.chevron_left,
+                ),
+                onPressed: () {
+                  setState(() {
+                    selectedMonth = DateTime(
+                      selectedMonth.year - 1,
+                      selectedMonth.month,
+                    );
+                  });
+
+                  Navigator.pop(context);
+                  _showMonthPicker();
+                },
+              ),
+
+              Text(
+                selectedMonth.year.toString(),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+
+              IconButton(
+                icon: const Icon(
+                  Icons.chevron_right,
+                ),
+                onPressed: () {
+                  setState(() {
+                    selectedMonth = DateTime(
+                      selectedMonth.year + 1,
+                      selectedMonth.month,
+                    );
+                  });
+
+                  Navigator.pop(context);
+                  _showMonthPicker();
+                },
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 320,
+            child: GridView.builder(
+              shrinkWrap: true,
+              itemCount: 12,
+              gridDelegate:
+              const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                mainAxisSpacing: 10,
+                crossAxisSpacing: 10,
+              ),
+              itemBuilder: (context, index) {
+
+                bool selected =
+                    selectedMonth.month == index + 1;
+
+                return GestureDetector(
+                  onTap: () {
+
+                    setState(() {
+                      selectedMonth = DateTime(
+                        selectedMonth.year,
+                        index + 1,
+                      );
+                    });
+
+                    Navigator.pop(context);
+                  },
+
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? const Color(0xFFFFB6C1)
+                          : Colors.transparent,
+                      borderRadius:
+                      BorderRadius.circular(12),
+                    ),
+
+                    child: Center(
+                      child: Text(
+                        monthNames[index]
+                            .substring(0, 3),
+                        style: TextStyle(
+                          color: selected
+                              ? Colors.white
+                              : Colors.black,
+                          fontWeight:
+                          FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8EEF1),
+      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        backgroundColor: const Color(0xFFD81B60),
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        elevation: 0,
+        centerTitle: true,
+
         title: const Text(
           "Expense Tracker",
           style: TextStyle(
-            color: Colors.white,
+            color: Colors.black,
             fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
+
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(
+            height: 1,
+            color: Colors.grey.shade300,
           ),
         ),
       ),
@@ -167,175 +434,170 @@ class _ExpenseTrackerPageState extends State<ExpenseTrackerPage> {
         child: Column(
           children: [
 
-            InkWell(
-              onTap: _pickDate,
-              child: InputDecorator(
-                decoration: InputDecoration(
-                  labelText: "Expense Date",
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                  suffixIcon: const Icon(Icons.calendar_today),
-                ),
-                child: Text(
-                  "${selectedDate.day}/${selectedDate.month}/${selectedDate.year}",
-                ),
-              ),
-            ),
-
-
-            const SizedBox(height: 15),
-            TextField(
-              controller: amountController,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: "Amount (RM)",
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 15),
-            DropdownButtonFormField<String>(
-              value: selectedCategory,
-              decoration: InputDecoration(
-                labelText: "Category",
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-              ),
-              items: categories.map((category) {
-                return DropdownMenuItem(
-                  value: category,
-                  child: Text(category),
-                );
-              }).toList(),
-              onChanged: (value) {
-                setState(() {
-                  selectedCategory = value!;
-                });
-              },
-            ),
-
-            const SizedBox(height: 15),
-
-            TextField(
-              controller: noteController,
-              decoration: InputDecoration(
-                labelText: "Note",
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor:
-                  const Color(0xFFD81B60),
-                ),
-                onPressed: _saveExpense,
-                child: const Text(
-                  "Save Expense",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-
             const SizedBox(height: 25),
 
             Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 15,
-                vertical: 12,
-              ),
+              width: double.infinity,
+              padding: const EdgeInsets.all(25),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFE4EC),
-                borderRadius: BorderRadius.circular(15),
-                border: Border.all(
-                  color: const Color(0xFFD81B60),
+                gradient: const LinearGradient(
+                  colors: [
+                    Color(0xFFFFB6C1),
+                    Color(0xFFC2185B),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
+                borderRadius: BorderRadius.circular(25),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFAD1457)
+                        .withValues(alpha: 0.25),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
               ),
-              child: Row(
+              child: Column(
                 children: [
-
-                  IconButton(
-                    icon: const Icon(
-                      Icons.chevron_left,
-                      color: Color(0xFFD81B60),
+                  Text(
+                    "Expenses for ${monthNames[selectedMonth.month - 1]} ${selectedMonth.year}",
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14,
                     ),
-                    onPressed: () {
-                      setState(() {
-                        selectedMonth = DateTime(
-                          selectedMonth.year,
-                          selectedMonth.month - 1,
-                        );
-                      });
-                    },
                   ),
 
-                  Expanded(
-                    child: Column(
+
+                  const SizedBox(height: 12),
+
+                  Text(
+                    "RM ${monthlyTotalExpense.toStringAsFixed(2)}",
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 36,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                Row(
+                  children: [
+
+                    Expanded(
+                      child: Column(
+                        children: [
+                          const Text(
+                            "Records",
+                            style: TextStyle(
+                              color: Colors.white54,
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            filteredExpenses.length.toString(),
+                            style: const TextStyle(
+                              color: Colors.orange,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    Container(
+                      width: 1,
+                      height: 50,
+                      color: Colors.white24,
+                    ),
+
+                    Expanded(
+                      child: Column(
+                        children: [
+                          const Text(
+                            "Month",
+                            style: TextStyle(
+                              color: Colors.white54,
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            monthNames[selectedMonth.month - 1],
+                            style: const TextStyle(
+                              color: Colors.blue,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            ),
+
+            const SizedBox(height: 20),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+
+                const Text(
+                  "Select Month",
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+
+                const SizedBox(height: 10),
+
+                InkWell(
+                  onTap: _showMonthPicker,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: Row(
                       children: [
-                        const Text(
-                          "Expense Month",
-                          style: TextStyle(
-                            color: Colors.grey,
-                            fontSize: 12,
+
+                        Expanded(
+                          child: Text(
+                            "${monthNames[selectedMonth.month - 1]} ${selectedMonth.year}",
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
 
-                        const SizedBox(height: 4),
-
-                        Text(
-                          "${monthNames[selectedMonth.month - 1]} ${selectedMonth.year}",
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        const Icon(
+                          Icons.keyboard_arrow_down,
                         ),
                       ],
                     ),
                   ),
-
-                  IconButton(
-                    icon: const Icon(
-                      Icons.chevron_right,
-                      color: Color(0xFFD81B60),
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        selectedMonth = DateTime(
-                          selectedMonth.year,
-                          selectedMonth.month + 1,
-                        );
-                      });
-                    },
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
 
-            Card(
-              child: ListTile(
-                leading: const Icon(
-                  Icons.account_balance_wallet,
-                  color: Color(0xFFD81B60),
-                ),
-                title: const Text(
-                  "Total Expenses",
-                ),
-                subtitle: Text(
-                  "RM ${monthlyTotalExpense.toStringAsFixed(2)}",
+            const SizedBox(height: 10),
+
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                "Recent Records",
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ),
@@ -350,57 +612,88 @@ class _ExpenseTrackerPageState extends State<ExpenseTrackerPage> {
                   final expense =
                   filteredExpenses[index];
 
-                  return Card(
-                    elevation: 3,
-                    margin: const EdgeInsets.only(bottom: 10),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
                     ),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor:
-                        const Color(0xFFD81B60).withOpacity(0.15),
-                        child: Icon(
-                          getCategoryIcon(expense["category"]),
-                          color: const Color(0xFFD81B60),
-                        ),
-                      ),
+                    child: Row(
+                      children: [
 
-                      title: Text(
-                        expense["category"],
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 4),
-
-                          Text(
-                            "${expense["date"].day}/${expense["date"].month}/${expense["date"].year}",
-                            style: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 12,
+                        CircleAvatar(
+                          radius: 22,
+                          backgroundColor:
+                          const Color(0xFFD81B60)
+                              .withValues(alpha: 0.15),
+                          child: Icon(
+                            getCategoryIcon(
+                              expense["category"],
                             ),
+                            color: const Color(0xFFD81B60),
                           ),
-                          const SizedBox(height: 2),
+                        ),
 
-                          Text(
-                            "RM ${expense["amount"]}",
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w500,
+                        const SizedBox(width: 15),
+
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment:
+                            CrossAxisAlignment.start,
+                            children: [
+
+                              Text(
+                                expense["category"],
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+
+                              const SizedBox(height: 4),
+
+                              Text(
+                                "${expense["date"].day}/${expense["date"].month}/${expense["date"].year}",
+                                style: const TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        Column(
+                          crossAxisAlignment:
+                          CrossAxisAlignment.end,
+                          children: [
+
+                            Text(
+                              "-RM ${expense["amount"].toStringAsFixed(2)}",
+                              style: const TextStyle(
+                                color: Colors.red,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
 
-                      trailing: const Icon(
-                        Icons.arrow_forward_ios,
-                        size: 15,
-                        color: Colors.grey,
-                      ),
+                            IconButton(
+                              icon: const Icon(
+                                Icons.delete_outline,
+                                color: Colors.red,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  AppDataManager
+                                      .expenseRecords
+                                      .remove(expense);
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   );
                 },
@@ -408,6 +701,14 @@ class _ExpenseTrackerPageState extends State<ExpenseTrackerPage> {
             ),
           ],
         ),
+      ),
+      floatingActionButton:
+      FloatingActionButton.extended(
+        backgroundColor: Colors.orange,
+        foregroundColor: Colors.black,
+        onPressed: _showAddExpenseDialog,
+        icon: const Icon(Icons.add),
+        label: const Text("ADD EXPENSE"),
       ),
     );
   }

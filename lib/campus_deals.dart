@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'app_data_manager.dart';
 
 class CampusDealsPage extends StatefulWidget {
@@ -79,14 +81,65 @@ class _CampusDealsPageState extends State<CampusDealsPage> {
     ),
   ];
 
-  void _redeemVoucher(Deal deal) {
+  Future<void> loadClaimedVouchers() async {
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) return;
+
+    final snapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('claimed_vouchers')
+        .get();
+
+    for (var doc in snapshot.docs) {
+      String voucherCode = doc['voucherCode'];
+
+      for (var deal in campusDeals) {
+        if (deal.voucher == voucherCode) {
+          deal.isClaimed = true;
+
+          if (!AppDataManager.claimedVouchers.value
+              .contains(voucherCode)) {
+
+            AppDataManager.claimedVouchers.value = [
+              ...AppDataManager.claimedVouchers.value,
+              voucherCode,
+            ];
+          }
+        }
+      }
+    }
+
+    if (!mounted) return;
+
+    setState(() {});
+  }
+
+  Future<void> _redeemVoucher(Deal deal) async  {
 
     AppDataManager.claimVoucher(
       deal.voucher,
     );
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user != null) {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('claimed_vouchers')
+          .doc(deal.voucher)
+          .set({
+        'voucherCode': deal.voucher,
+        'title': deal.title,
+        'claimedAt': Timestamp.now(),
+      });
+    }
     setState(() {
       deal.isClaimed = true;
     });
+
+    if (!mounted) return;
 
     showDialog(
       context: context,
@@ -110,6 +163,12 @@ class _CampusDealsPageState extends State<CampusDealsPage> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    loadClaimedVouchers();
+  }
+
+  @override
   Widget build(BuildContext context) {
     List<Deal> filteredDeals = selectedCategory == "All"
         ? campusDeals
@@ -118,17 +177,27 @@ class _CampusDealsPageState extends State<CampusDealsPage> {
         .toList();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFF1F5),
+      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        elevation: 0,
+        centerTitle: true,
         title: const Text(
           "Campus Deals",
           style: TextStyle(
-            color: Color(0xFFC2185B),
+            color: Colors.black,
             fontWeight: FontWeight.bold,
+            fontSize: 20,
           ),
         ),
-        centerTitle: true,
-        backgroundColor: Colors.white,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(
+            height: 1,
+            color: Colors.grey.shade300,
+          ),
+        ),
       ),
       body: Column(
         children: [
@@ -295,7 +364,48 @@ class _CampusDealsPageState extends State<CampusDealsPage> {
           });
         },
         onLongPress: () {
-          _redeemVoucher(deal);
+
+          if (deal.isClaimed) {
+            showDialog(
+              context: context,
+              builder: (_) => AlertDialog(
+                title: const Text("Voucher Already Claimed"),
+                content: Text(
+                  "You have already claimed ${deal.voucher}.",
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text("OK"),
+                  ),
+                ],
+              ),
+            );
+            return;
+          }
+
+          showDialog(
+            context: context,
+            builder: (_) => AlertDialog(
+              title: const Text("Claim Voucher"),
+              content: Text(
+                "Do you want to claim ${deal.voucher}?\n\nYou will receive +10 Reward Points.",
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Cancel"),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _redeemVoucher(deal);
+                  },
+                  child: const Text("Claim"),
+                ),
+              ],
+            ),
+          );
         },
       ),
     );

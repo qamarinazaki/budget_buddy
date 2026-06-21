@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import 'app_data_manager.dart';
 
 class AnalyticsReport extends StatefulWidget {
@@ -16,6 +18,130 @@ class _AnalyticsReportState extends State<AnalyticsReport> {
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December"
   ];
+
+  List<Map<String, dynamic>> get monthlyExpenses {
+    return AppDataManager.expenseRecords.where((expense) {
+
+      final date = expense["date"] as DateTime;
+
+      return date.month == _selectedMonth.month &&
+          date.year == _selectedMonth.year;
+
+    }).toList();
+  }
+
+  double get monthlyTotalExpense {
+
+    double total = 0;
+
+    for (var expense in monthlyExpenses) {
+      total += (expense["amount"] as num)
+          .toDouble();
+    }
+
+    return total;
+  }
+
+  Color _getCategoryColor(String category) {
+    switch (category) {
+      case "Food":
+        return Colors.orange;
+
+      case "Transportation":
+        return Colors.green;
+
+      case "Entertainment":
+        return Colors.purple;
+
+      case "Education":
+        return Colors.blue;
+
+      case "Medical":
+        return Colors.red;
+
+      default:
+        return Colors.grey;
+    }
+  }
+
+  Future<void> downloadReport() async {
+    try {
+
+    final pdf = pw.Document();
+
+    pdf.addPage(
+      pw.Page(
+        build: (context) {
+
+          return pw.Column(
+            crossAxisAlignment:
+            pw.CrossAxisAlignment.start,
+            children: [
+
+              pw.Text(
+                "BudgetBuddy Monthly Report",
+                style: pw.TextStyle(
+                  fontSize: 22,
+                  fontWeight:
+                  pw.FontWeight.bold,
+                ),
+              ),
+
+              pw.SizedBox(height: 20),
+
+              pw.Text(
+                "Month: ${_monthNames[_selectedMonth.month - 1]} ${_selectedMonth.year}",
+              ),
+
+              pw.Text(
+                "Total Expenses: RM ${monthlyTotalExpense.toStringAsFixed(2)}",
+              ),
+
+              pw.Text(
+                "Total Transactions: ${monthlyExpenses.length}",
+              ),
+
+              pw.SizedBox(height: 20),
+
+              pw.Text(
+                "Expense Records",
+                style: pw.TextStyle(
+                  fontWeight:
+                  pw.FontWeight.bold,
+                ),
+              ),
+
+              pw.SizedBox(height: 10),
+
+              ...monthlyExpenses.map(
+                    (expense) => pw.Text(
+                  "${expense['category']} - RM ${(expense['amount'] as num).toStringAsFixed(2)}",
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    await Printing.layoutPdf(
+      onLayout: (format) async =>
+          pdf.save(),
+    );
+    } catch (e) {
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Failed to generate report.',
+          ),
+        ),
+      );
+    }
+  }
 
   Future<void> _selectMonth(BuildContext context) async {
     int tempYear = _selectedMonth.year;
@@ -64,7 +190,7 @@ class _AnalyticsReportState extends State<AnalyticsReport> {
                       child: Container(
                         margin: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
-                          color: isSelected ? Colors.indigo : null,
+                          color: isSelected ? const Color(0xFFC2185B) : null,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         alignment: Alignment.center,
@@ -100,15 +226,27 @@ class _AnalyticsReportState extends State<AnalyticsReport> {
     String selectedMonthText = "${_monthNames[_selectedMonth.month - 1]} ${_selectedMonth.year}";
 
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        title: const Text('Analytics & Reports', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
         elevation: 0,
-        foregroundColor: Colors.black,
-        actions: [
-          IconButton(onPressed: () {}, icon: const Icon(Icons.share_outlined)),
-        ],
+        centerTitle: true,
+        title: const Text(
+          "Analytics Report",
+          style: TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(
+            height: 1,
+            color: Colors.grey.shade300,
+          ),
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -124,7 +262,7 @@ class _AnalyticsReportState extends State<AnalyticsReport> {
                 ),
                 IconButton(
                   onPressed: () => _selectMonth(context),
-                  icon: const Icon(Icons.calendar_month_outlined, color: Colors.indigo),
+                  icon: const Icon(Icons.calendar_month_outlined, color: Colors.black),
                   tooltip: 'Select Month',
                   visualDensity: VisualDensity.compact,
                 ),
@@ -133,24 +271,42 @@ class _AnalyticsReportState extends State<AnalyticsReport> {
             const SizedBox(height: 12),
             // 4 Small Summary Cards in a row
             Container(
-              padding: const EdgeInsets.all(16),
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
+                color: const Color(0xFFFFF5F8),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: const Color(0xFFF8BBD0),
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Icon(
+                    Icons.insights,
+                    color: Color(0xFFC2185B),
+                  ),
+                  SizedBox(width: 8),
                   Text(
                     "Spending Insights",
                     style: TextStyle(
+                      color: Color(0xFFAD1457),
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   SizedBox(height: 10),
                   Text(
-                    "Total Expenses: RM ${AppDataManager.totalExpense.toStringAsFixed(2)}",
+                    "Total Expenses: RM ${monthlyTotalExpense.toStringAsFixed(2)}",
                   ),
 
                   Text(
@@ -158,11 +314,11 @@ class _AnalyticsReportState extends State<AnalyticsReport> {
                   ),
 
                   Text(
-                    "Total Transactions: ${AppDataManager.expenseRecords.length}",
+                    "Total Transactions: ${monthlyExpenses.length}",
                   ),
 
                   Text(
-                    "Current Savings: RM ${(AppDataManager.totalIncome - AppDataManager.totalExpense).toStringAsFixed(2)}",
+                    "Available Balance: RM ${(AppDataManager.totalIncome - monthlyTotalExpense).toStringAsFixed(2)}",
                   ),
                 ],
               ),
@@ -185,51 +341,19 @@ class _AnalyticsReportState extends State<AnalyticsReport> {
             _buildCategoryList(),
             const SizedBox(height: 32),
             // Download Report Button
-            const SizedBox(height: 32),
-
-            const Text(
-              "Monthly Trend",
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(height: 15),
-
-            Container(
-              height: 180,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: const Center(
-                child: Text(
-                  "Monthly Expense Trend Chart",
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
 
             const SizedBox(height: 32),
 
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Downloading report...'),
-                    ),
-                  );
+                onPressed: () async {
+                  await downloadReport();
                 },
                 icon: const Icon(Icons.download_rounded),
                 label: const Text('Download Monthly Report'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.indigo,
+                  backgroundColor: const Color(0xFFC2185B),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
@@ -246,47 +370,10 @@ class _AnalyticsReportState extends State<AnalyticsReport> {
     );
   }
 
-  Widget _buildSummaryCard(String title, String value, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: color, size: 16),
-          const SizedBox(height: 4),
-          Text(
-            title,
-            style: TextStyle(fontSize: 9, color: Colors.grey[600], fontWeight: FontWeight.w500),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 2),
-          Text(
-            value,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildPieChart() {
     Map<String, double> categoryTotals = {};
 
-    for (var expense in AppDataManager.expenseRecords) {
+    for (var expense in monthlyExpenses) {
 
       String category = expense["category"];
 
@@ -296,28 +383,15 @@ class _AnalyticsReportState extends State<AnalyticsReport> {
       categoryTotals[category] =
           (categoryTotals[category] ?? 0) + amount;
     }
-    final categories = [
-      {
-        'name': 'Food',
-        'amount': categoryTotals['Food'] ?? 0,
-        'color': Colors.orange,
-      },
-      {
-        'name': 'Transport',
-        'amount': categoryTotals['Transport'] ?? 0,
-        'color': Colors.green,
-      },
-      {
-        'name': 'Printing',
-        'amount': categoryTotals['Printing'] ?? 0,
-        'color': Colors.blue,
-      },
-      {
-        'name': 'Entertainment',
-        'amount': categoryTotals['Entertainment'] ?? 0,
-        'color': Colors.purple,
-      },
-    ];
+    final categories = categoryTotals.entries
+        .where((entry) => entry.value > 0)
+        .map((entry) {
+      return {
+        'name': entry.key,
+        'amount': entry.value,
+        'color': _getCategoryColor(entry.key),
+      };
+    }).toList();
 
     double total = categories.fold(
       0.0,
@@ -382,7 +456,7 @@ class _AnalyticsReportState extends State<AnalyticsReport> {
   Widget _buildCategoryList() {
     Map<String, double> categoryTotals = {};
 
-    for (var expense in AppDataManager.expenseRecords) {
+    for (var expense in monthlyExpenses) {
 
       String category = expense["category"];
 
@@ -393,28 +467,15 @@ class _AnalyticsReportState extends State<AnalyticsReport> {
           (categoryTotals[category] ?? 0) + amount;
     }
 
-    final categories = [
-      {
-        'name': 'Food',
-        'amount': categoryTotals['Food'] ?? 0,
-        'color': Colors.orange,
-      },
-      {
-        'name': 'Transport',
-        'amount': categoryTotals['Transport'] ?? 0,
-        'color': Colors.green,
-      },
-      {
-        'name': 'Printing',
-        'amount': categoryTotals['Printing'] ?? 0,
-        'color': Colors.blue,
-      },
-      {
-        'name': 'Entertainment',
-        'amount': categoryTotals['Entertainment'] ?? 0,
-        'color': Colors.purple,
-      },
-    ];
+    final categories = categoryTotals.entries
+        .where((entry) => entry.value > 0)
+        .map((entry) {
+      return {
+        'name': entry.key,
+        'amount': entry.value,
+        'color': _getCategoryColor(entry.key),
+      };
+    }).toList();
     double totalExpense =
     categoryTotals.values.fold(
       0.0,
@@ -481,6 +542,7 @@ class PieChartPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (total <= 0) return;
     double startAngle = -math.pi / 2;
     final rect = Rect.fromLTWH(0, 0, size.width, size.height);
 

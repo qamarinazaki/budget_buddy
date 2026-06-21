@@ -109,18 +109,28 @@ class _BillReminderPageState extends State<BillReminderPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFDFDFD),
+      backgroundColor: const Color(0xFFF8F9FA),
 
       appBar: AppBar(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        elevation: 0,
+        centerTitle: true,
         title: const Text(
           "Bill Reminder",
           style: TextStyle(
-            color: Color(0xFFC2185B),
+            color: Colors.black,
             fontWeight: FontWeight.bold,
+            fontSize: 20,
           ),
         ),
-        centerTitle: true,
-        backgroundColor: Colors.white,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(
+            height: 1,
+            color: Colors.grey.shade300,
+          ),
+        ),
       ),
 
       body: SingleChildScrollView(

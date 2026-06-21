@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'app_data_manager.dart';
 
 class IncomeTracker extends StatefulWidget {
@@ -14,13 +17,7 @@ class _IncomeTrackerState extends State<IncomeTracker> {
   
   // Making this static ensures the data persists throughout the app session
   // even when you navigate away from this page and come back.
-  static final List<Map<String, dynamic>> _incomes = [
-    {'source': 'Monthly Allowance', 'amount': 1500.0, 'date': DateTime(2025, 2, 25)},
-    {'source': 'Part-time Job', 'amount': 600.0, 'date': DateTime(2025, 2, 22)},
-    {'source': 'Monthly Allowance', 'amount': 1500.0, 'date': DateTime(2025, 1, 25)},
-    {'source': 'Freelance Project', 'amount': 450.0, 'date': DateTime(2025, 1, 10)},
-    {'source': 'Gift', 'amount': 100.0, 'date': DateTime(2024, 12, 25)},
-  ];
+  static final List<Map<String, dynamic>> _incomes = [];
 
   final List<String> _monthNames = [
     "January", "February", "March", "April", "May", "June",
@@ -35,7 +32,10 @@ class _IncomeTrackerState extends State<IncomeTracker> {
   }
 
   double get _totalMonthlyIncome {
-    return _filteredIncomes.fold(0.0, (sum, item) => sum + item['amount']);
+    return _filteredIncomes.fold(
+      0.0,
+          (total, item) => total + item['amount'],
+    );
   }
 
   Future<void> _selectMonth(BuildContext context) async {
@@ -84,7 +84,9 @@ class _IncomeTrackerState extends State<IncomeTracker> {
                       child: Container(
                         margin: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
-                          color: isSelected ? Colors.indigo : null,
+                          color: isSelected
+                              ? const Color(0xFFFFB6C1)
+                              : null,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         alignment: Alignment.center,
@@ -123,9 +125,11 @@ class _IncomeTrackerState extends State<IncomeTracker> {
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => Padding(
+      builder: (dialogContext) => Padding(
         padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
+          bottom: MediaQuery.of(dialogContext)
+              .viewInsets
+              .bottom,
           top: 24,
           left: 24,
           right: 24,
@@ -158,28 +162,103 @@ class _IncomeTrackerState extends State<IncomeTracker> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {
-                  if (sourceController.text.isNotEmpty &&
-                      amountController.text.isNotEmpty) {
+                onPressed: () async {
 
-                    double amount =
-                        double.tryParse(amountController.text) ?? 0.0;
+                  final messenger =
+                  ScaffoldMessenger.of(context);
 
-                    setState(() {
-                      _incomes.insert(0, {
-                        'source': sourceController.text,
-                        'amount': amount,
-                        'date': DateTime.now(),
-                      });
+                  final navigator =
+                  Navigator.of(dialogContext);
 
-                      AppDataManager.addIncome(
-                        sourceController.text,
-                        amount,
-                      );
+                  if (sourceController.text.isEmpty ||
+                      amountController.text.isEmpty) {
+
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          "Please fill in all fields.",
+                        ),
+                      ),
+                    );
+                    return;
+                  }
+
+                  final amount =
+                  double.tryParse(
+                    amountController.text,
+                  );
+
+                  if (amount == null) {
+
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          "Amount must be a valid number.",
+                        ),
+                      ),
+                    );
+                    return;
+                  }
+
+                  if (amount <= 0) {
+
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          "Amount must be greater than 0.",
+                        ),
+                      ),
+                    );
+                    return;
+                  }
+
+                  setState(() {
+                    _incomes.insert(0, {
+                      'source': sourceController.text,
+                      'amount': amount,
+                      'date': DateTime.now(),
                     });
 
-                    Navigator.pop(context);
+                    AppDataManager.addIncome(
+                      sourceController.text,
+                      amount,
+                    );
+                  });
+
+                  final user = FirebaseAuth.instance.currentUser;
+
+                  if (user != null) {
+
+                    final messenger =
+                    ScaffoldMessenger.of(context);
+
+                    try {
+
+                      await FirebaseFirestore.instance
+                          .collection('users')
+                          .doc(user.uid)
+                          .collection('income')
+                          .add({
+                        'source': sourceController.text,
+                        'amount': amount,
+                        'date': Timestamp.now(),
+                      });
+
+                    } catch (e) {
+
+                      messenger.showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Failed to save income.',
+                          ),
+                        ),
+                      );
+
+                      return;
+                    }
                   }
+
+                  navigator.pop();
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFFFB6C1),
@@ -211,9 +290,11 @@ class _IncomeTrackerState extends State<IncomeTracker> {
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => Padding(
+      builder: (dialogContext) => Padding(
         padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
+          bottom: MediaQuery.of(dialogContext)
+              .viewInsets
+              .bottom,
           top: 24,
           left: 24,
           right: 24,
@@ -238,7 +319,7 @@ class _IncomeTrackerState extends State<IncomeTracker> {
                     setState(() {
                       _incomes.remove(income);
                     });
-                    Navigator.pop(context);
+                    Navigator.pop(dialogContext);
                   },
                   icon: const Icon(Icons.delete_outline, color: Colors.red),
                 ),
@@ -256,9 +337,16 @@ class _IncomeTrackerState extends State<IncomeTracker> {
             const SizedBox(height: 16),
             TextField(
               controller: amountController,
-              keyboardType: TextInputType.number,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(
+                  RegExp(r'^\d*\.?\d*'),
+                ),
+              ],
               decoration: const InputDecoration(
-                labelText: 'Amount (\$)',
+                labelText: 'Amount (RM)',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.attach_money),
               ),
@@ -273,7 +361,7 @@ class _IncomeTrackerState extends State<IncomeTracker> {
                       income['source'] = sourceController.text;
                       income['amount'] = double.tryParse(amountController.text) ?? 0.0;
                     });
-                    Navigator.pop(context);
+                    Navigator.pop(dialogContext);
                   }
                 },
                 style: ElevatedButton.styleFrom(
@@ -297,13 +385,27 @@ class _IncomeTrackerState extends State<IncomeTracker> {
     String selectedMonthText = "${_monthNames[_selectedMonth.month - 1]} ${_selectedMonth.year}";
 
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        title: const Text('Income Tracker', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
         elevation: 0,
-        foregroundColor: const Color(0xFFC2185B),
         centerTitle: true,
+        title: const Text(
+          "Income Tracker",
+          style: TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(
+            height: 1,
+            color: Colors.grey.shade300,
+          ),
+        ),
       ),
       body: Column(
         children: [
@@ -320,7 +422,7 @@ class _IncomeTrackerState extends State<IncomeTracker> {
                 IconButton(
                   onPressed: () => _selectMonth(context),
                   icon: const Icon(Icons.calendar_month_outlined,
-                    color: Color(0xFFC2185B),),
+                    color: Colors.black,),
                   tooltip: 'Select Month',
                 ),
               ],
@@ -372,7 +474,11 @@ class _IncomeTrackerState extends State<IncomeTracker> {
               children: [
                 Text(
                   'Income History',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),

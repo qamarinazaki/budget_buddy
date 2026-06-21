@@ -7,56 +7,53 @@ class RewardsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8EEF1),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Container(
-              height: 140,
-              width: double.infinity,
-              decoration: const BoxDecoration(
-                color: Color(0xFFD81B60),
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(30),
-                  bottomRight: Radius.circular(30),
-                ),
-              ),
-              child: const Padding(
-                padding: EdgeInsets.all(25),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.menu, color: Colors.white, size: 30),
-                    Spacer(),
-                    Text(
-                      "Rewards",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    )
-                  ],
-                ),
-              ),
-            ),
+      backgroundColor: const Color(0xFFF8F9FA),
 
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(25),
-                child: Column(
-                  children: [
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        elevation: 0,
+        centerTitle: true,
+        title: const Text(
+          "Rewards",
+          style: TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(
+            height: 1,
+            color: Colors.grey.shade300,
+          ),
+        ),
+      ),
+
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(25),
+        child: Column(
+            children: [
                     Row(
                       children: [
                         CircleAvatar(
                           radius: 30,
-                          backgroundColor: Color(0xFFD81B60),
-                          child: Icon(Icons.person,
-                              color: Colors.white, size: 40),
+                          backgroundColor: const Color(0xFFD81B60),
+                          child: Text(
+                            AppDataManager.userName.isNotEmpty
+                                ? AppDataManager.userName[0].toUpperCase()
+                                : 'U',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 26,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                         SizedBox(width: 20),
                         Text(
-                          "FAKHRIL HAIKAL",
+                          AppDataManager.userName,
                           style: TextStyle(
                             color: Color(0xFFD81B60),
                             fontWeight: FontWeight.bold,
@@ -139,6 +136,7 @@ class RewardsPage extends StatelessWidget {
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 15),
                         child: _voucherCard(
+                          context,
                           Icons.card_giftcard,
                           voucher,
                         ),
@@ -147,10 +145,30 @@ class RewardsPage extends StatelessWidget {
                   );
                 },
               ),
-                  ],
+              const SizedBox(height: 40),
+
+              const Text(
+                "POINT REDEMPTION",
+                style: TextStyle(
+                  color: Color(0xFFD81B60),
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
                 ),
               ),
-            ),
+
+              const SizedBox(height: 20),
+
+              _rewardItem(
+                context,
+                "RM5 Voucher",
+                50,
+              ),
+
+              _rewardItem(
+                context,
+                "RM10 Voucher",
+                100,
+              ),
           ],
         ),
       ),
@@ -195,23 +213,151 @@ class RewardsPage extends StatelessWidget {
     );
   }
 
-  Widget _voucherCard(IconData icon, String title) {
+  Widget _voucherCard(
+      BuildContext context,
+      IconData icon,
+      String title,
+      ) {
+    return ValueListenableBuilder<List<String>>(
+      valueListenable: AppDataManager.usedVouchers,
+      builder: (context, usedVouchers, child) {
+
+        bool used = usedVouchers.contains(title);
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: used
+                ? Colors.grey.shade300
+                : const Color(0xFFF3C4D4),
+            borderRadius: BorderRadius.circular(15),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                color: const Color(0xFFD81B60),
+              ),
+
+              const SizedBox(width: 15),
+
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: Color(0xFFD81B60),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+
+              ElevatedButton(
+                onPressed: used
+                    ? null
+                    : () {
+                  showDialog(
+                    context: context,
+                    builder: (_) => AlertDialog(
+                      title: const Text("Voucher Code"),
+                      content: Text(
+                        "Show this voucher code:\n\n$title",
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                          },
+                          child: const Text("Close"),
+                        ),
+                        ElevatedButton(
+                          onPressed: () {
+                            AppDataManager.useVoucher(title);
+                            Navigator.pop(context);
+                          },
+                          child: const Text("Use"),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                child: Text(
+                  used ? "Used" : "Use",
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+  Widget _rewardItem(
+      BuildContext context,
+      String title,
+      int pointsNeeded,
+      ) {
     return Container(
-      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 15),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFFF3C4D4),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          Icon(icon, color: Color(0xFFD81B60)),
-          const SizedBox(width: 15),
-          Text(
-            title,
-            style: const TextStyle(
-              color: Color(0xFFD81B60),
-              fontWeight: FontWeight.bold,
+          Expanded(
+            child: Text(
+              "$title ($pointsNeeded Points)",
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Color(0xFFD81B60),
+              ),
+            ),
+          ),
+
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFD81B60),
+            ),
+            onPressed: () {
+
+              if (AppDataManager.rewardPoints.value <
+                  pointsNeeded) {
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      "Not enough points",
+                    ),
+                  ),
+                );
+
+                return;
+              }
+
+              AppDataManager.rewardPoints.value -=
+                  pointsNeeded;
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    "$title claimed successfully",
+                  ),
+                ),
+              );
+            },
+            child: const Text(
+              "Claim",
+              style: TextStyle(
+                color: Colors.white,
+              ),
             ),
           ),
         ],

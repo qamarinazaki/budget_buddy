@@ -11,6 +11,19 @@ class AppDataManager {
   static double totalSaving = 0;
 
   // =========================
+// PROFILE DATA
+// =========================
+
+  static String userName = "";
+  static String userEmail = "";
+  static String userPassword = "";
+  static String userPhone = "";
+  static String course = "";
+  static String studyYear = "";
+  static double monthlyBudget = 0;
+  static String financialGoal = "";
+
+  // =========================
 // BUDGET DATA
 // =========================
 
@@ -32,6 +45,8 @@ class AppDataManager {
   static ValueNotifier<int> rewardPoints = ValueNotifier(0);
 
   static ValueNotifier<List<String>> claimedVouchers =
+  ValueNotifier([]);
+  static ValueNotifier<List<String>> usedVouchers =
   ValueNotifier([]);
 
   static List<String> unlockedBadges = [];
@@ -128,6 +143,16 @@ class AppDataManager {
       _checkBadges();
     }
   }
+  static void useVoucher(String voucherCode) {
+
+    if (!usedVouchers.value.contains(voucherCode)) {
+
+      usedVouchers.value = [
+        ...usedVouchers.value,
+        voucherCode,
+      ];
+    }
+  }
 
   // =========================
   // BADGES
@@ -164,6 +189,15 @@ class AppDataManager {
     totalExpense = 0;
     totalSaving = 0;
 
+    //userName = "";
+    //userEmail = "";
+    //userPassword = "";
+    //userPhone = "";
+    //course = "";
+    //studyYear = "";
+    //monthlyBudget = 0;
+    //financialGoal = "";
+
     foodBudget = 0;
     transportBudget = 0;
     entertainmentBudget = 0;
@@ -178,6 +212,7 @@ class AppDataManager {
     savingGoals.clear();
 
     claimedVouchers.value = [];
+    usedVouchers.value = [];
     unlockedBadges.clear();
   }
 }
