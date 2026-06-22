@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'account_manager.dart';
+import 'app_data_manager.dart';
 import 'login_screen.dart';
 import 'dashboard.dart';
 
@@ -332,6 +334,8 @@ class ProfileScreen extends StatelessWidget {
     final passwordController =
     TextEditingController();
 
+    bool obscurePassword = true;
+
     showDialog(
       context: context,
       builder: (dialogContext) {
@@ -339,15 +343,39 @@ class ProfileScreen extends StatelessWidget {
           title: const Text(
             "Change Password",
           ),
-          content: TextField(
-            controller:
-            passwordController,
-            obscureText: true,
-            decoration:
-            const InputDecoration(
-              labelText:
-              "New Password",
-            ),
+          content: StatefulBuilder(
+            builder: (
+                context,
+                setDialogState,
+                ) {
+              return TextField(
+                controller:
+                passwordController,
+                obscureText:
+                obscurePassword,
+                decoration:
+                InputDecoration(
+                  labelText:
+                  "New Password",
+                  suffixIcon:
+                  IconButton(
+                    icon: Icon(
+                      obscurePassword
+                          ? Icons
+                          .visibility_off
+                          : Icons
+                          .visibility,
+                    ),
+                    onPressed: () {
+                      setDialogState(() {
+                        obscurePassword =
+                        !obscurePassword;
+                      });
+                    },
+                  ),
+                ),
+              );
+            },
           ),
           actions: [
 
@@ -432,6 +460,162 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
+  void _showEditProfileDialog(
+      BuildContext context) {
+
+    final nameController =
+    TextEditingController(
+      text: userName,
+    );
+
+    final emailController =
+    TextEditingController(
+      text: userEmail,
+    );
+
+    final phoneController =
+    TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text(
+            "Edit Profile",
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize:
+              MainAxisSize.min,
+              children: [
+
+                TextField(
+                  controller:
+                  nameController,
+                  decoration:
+                  const InputDecoration(
+                    labelText:
+                    "Full Name",
+                  ),
+                ),
+
+                const SizedBox(
+                  height: 10,
+                ),
+
+                TextField(
+                  controller:
+                  emailController,
+                  decoration:
+                  const InputDecoration(
+                    labelText:
+                    "Email",
+                  ),
+                ),
+
+                const SizedBox(
+                  height: 10,
+                ),
+
+                TextField(
+                  controller:
+                  phoneController,
+                  decoration:
+                  const InputDecoration(
+                    labelText:
+                    "Phone Number",
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+
+            TextButton(
+              onPressed: () {
+                Navigator.pop(
+                  dialogContext,
+                );
+              },
+              child:
+              const Text("Cancel"),
+            ),
+
+            ElevatedButton(
+              onPressed: () async {
+
+                try {
+
+                  AppDataManager.userName =
+                      nameController.text;
+
+                  AppDataManager.userEmail =
+                      emailController.text;
+
+                  AppDataManager.userPhone =
+                      phoneController.text;
+
+                  await FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(
+                    FirebaseAuth
+                        .instance
+                        .currentUser!
+                        .uid,
+                  )
+                      .update({
+                    'name': nameController.text,
+                    'email': emailController.text,
+                    'phone': phoneController.text,
+                  });
+
+                  await FirebaseAuth
+                      .instance
+                      .currentUser
+                      ?.verifyBeforeUpdateEmail(
+                    emailController.text,
+                  );
+
+                  if (!context.mounted) {
+                    return;
+                  }
+
+                  Navigator.pop(
+                    dialogContext,
+                  );
+
+                  ScaffoldMessenger.of(
+                      context)
+                      .showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        "Profile updated successfully.",
+                      ),
+                    ),
+                  );
+
+                } catch (e) {
+
+                  ScaffoldMessenger.of(
+                      context)
+                      .showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        e.toString(),
+                      ),
+                    ),
+                  );
+                }
+              },
+              child:
+              const Text("Save"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -456,15 +640,15 @@ class ProfileScreen extends StatelessWidget {
             fontSize: 20,
           ),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(
-              Icons.edit_rounded,
-              color: Colors.black,
+          actions: [
+            IconButton(
+              icon: const Icon(
+                Icons.edit_rounded,
+                color: Colors.black,
+              ),
+              onPressed: () =>
+                  _showEditProfileDialog(context),
             ),
-            onPressed: () =>
-                _showPersonalDetails(context),
-          ),
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),

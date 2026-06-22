@@ -302,7 +302,7 @@ class _MainDashboardState extends State<MainDashboard> {
                 Icons.analytics,
                 color: Color(0xFFC2185B),
               ),
-              title: const Text("Analytics Report"),
+              title: const Text("Analytics & Report"),
               trailing: const Icon(Icons.arrow_forward_ios),
               onTap: () {
                 Navigator.push(

@@ -256,7 +256,7 @@ class _AnalyticsReportState extends State<AnalyticsReport> {
         elevation: 0,
         centerTitle: true,
         title: const Text(
-          "Analytics Report",
+          "Analytics & Report",
           style: TextStyle(
             color: Colors.black,
             fontWeight: FontWeight.bold,
