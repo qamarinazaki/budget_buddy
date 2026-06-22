@@ -37,6 +37,58 @@ class _IncomeTrackerState extends State<IncomeTracker> {
           (total, item) => total + item['amount'],
     );
   }
+  Future<void> loadIncome() async {
+
+    final user =
+        FirebaseAuth.instance.currentUser;
+
+    if (user == null) return;
+
+    try {
+
+      final snapshot =
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('income')
+          .orderBy(
+        'date',
+        descending: true,
+      )
+          .get();
+
+      _incomes.clear();
+      AppDataManager.incomeRecords.clear();
+
+      for (var doc in snapshot.docs) {
+
+        final incomeData = {
+          'id': doc.id,
+          'source': doc['source'],
+          'amount': doc['amount'],
+          'date': (doc['date'] as Timestamp).toDate(),
+        };
+
+        _incomes.add(incomeData);
+
+        AppDataManager.incomeRecords.add({
+          'source': doc['source'],
+          'amount': doc['amount'],
+          'date': (doc['date'] as Timestamp).toDate(),
+        });
+      }
+
+      if (!mounted) return;
+
+      setState(() {});
+
+    } catch (e) {
+
+      debugPrint(
+        'Error loading income: $e',
+      );
+    }
+  }
 
   Future<void> _selectMonth(BuildContext context) async {
     int tempYear = _selectedMonth.year;
@@ -120,6 +172,7 @@ class _IncomeTrackerState extends State<IncomeTracker> {
   void _showAddIncomeDialog() {
     final sourceController = TextEditingController();
     final amountController = TextEditingController();
+    DateTime selectedDate = DateTime.now();
 
     showModalBottomSheet(
       context: context,
@@ -159,6 +212,36 @@ class _IncomeTrackerState extends State<IncomeTracker> {
               ),
             ),
             const SizedBox(height: 24),
+            StatefulBuilder(
+              builder: (context, setDialogState) {
+                return ListTile(
+                  leading: const Icon(Icons.calendar_today),
+                  title: Text(
+                    DateFormat('dd MMM yyyy')
+                        .format(selectedDate),
+                  ),
+                  onTap: () async {
+
+                    final pickedDate =
+                    await showDatePicker(
+                      context: dialogContext,
+                      initialDate: selectedDate,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime.now(),
+                    );
+
+                    if (pickedDate != null) {
+                      setDialogState(() {
+                        selectedDate = pickedDate;
+                      });
+                    }
+                  },
+                );
+              },
+            ),
+
+            const SizedBox(height: 16),
+
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -216,12 +299,13 @@ class _IncomeTrackerState extends State<IncomeTracker> {
                     _incomes.insert(0, {
                       'source': sourceController.text,
                       'amount': amount,
-                      'date': DateTime.now(),
+                      'date': selectedDate,
                     });
 
                     AppDataManager.addIncome(
                       sourceController.text,
                       amount,
+                      selectedDate,
                     );
                   });
 
@@ -241,8 +325,12 @@ class _IncomeTrackerState extends State<IncomeTracker> {
                           .add({
                         'source': sourceController.text,
                         'amount': amount,
-                        'date': Timestamp.now(),
+                        'date': Timestamp.fromDate(
+                          selectedDate,
+                        ),
                       });
+
+                      await loadIncome();
 
                     } catch (e) {
 
@@ -285,6 +373,8 @@ class _IncomeTrackerState extends State<IncomeTracker> {
   void _showEditIncomeDialog(Map<String, dynamic> income) {
     final sourceController = TextEditingController(text: income['source']);
     final amountController = TextEditingController(text: income['amount'].toString());
+    DateTime selectedDate =
+    income['date'];
 
     showModalBottomSheet(
       context: context,
@@ -351,15 +441,58 @@ class _IncomeTrackerState extends State<IncomeTracker> {
                 prefixIcon: Icon(Icons.attach_money),
               ),
             ),
+
             const SizedBox(height: 24),
+
+            StatefulBuilder(
+              builder: (context, setDialogState) {
+                return ListTile(
+                  leading: const Icon(
+                    Icons.calendar_today,
+                  ),
+                  title: Text(
+                    DateFormat('dd MMM yyyy')
+                        .format(selectedDate),
+                  ),
+                  onTap: () async {
+
+                    final pickedDate =
+                    await showDatePicker(
+                      context: dialogContext,
+                      initialDate: selectedDate,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime.now(),
+                    );
+
+                    if (pickedDate != null) {
+                      setDialogState(() {
+                        selectedDate =
+                            pickedDate;
+                      });
+                    }
+                  },
+                );
+              },
+            ),
+
+            const SizedBox(height: 16),
+
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
                   if (sourceController.text.isNotEmpty && amountController.text.isNotEmpty) {
                     setState(() {
-                      income['source'] = sourceController.text;
-                      income['amount'] = double.tryParse(amountController.text) ?? 0.0;
+                      income['source'] =
+                          sourceController.text;
+
+                      income['amount'] =
+                          double.tryParse(
+                            amountController.text,
+                          ) ?? 0.0;
+
+                      income['date'] =
+                          selectedDate;
                     });
                     Navigator.pop(dialogContext);
                   }
@@ -378,6 +511,12 @@ class _IncomeTrackerState extends State<IncomeTracker> {
         ),
       ),
     );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    loadIncome();
   }
 
   @override

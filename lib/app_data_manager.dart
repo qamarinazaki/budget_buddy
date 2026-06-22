@@ -58,12 +58,14 @@ class AppDataManager {
   static void addIncome(
       String source,
       double amount,
+      DateTime date,
       ) {
     totalIncome += amount;
 
     incomeRecords.add({
       "source": source,
       "amount": amount,
+      "date": date,
     });
 
     rewardPoints.value += 5;

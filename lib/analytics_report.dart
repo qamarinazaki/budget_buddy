@@ -41,6 +41,29 @@ class _AnalyticsReportState extends State<AnalyticsReport> {
 
     return total;
   }
+  double get monthlyTotalIncome {
+
+    double total = 0;
+
+    for (var income
+    in AppDataManager.incomeRecords) {
+
+      final date =
+      income["date"] as DateTime;
+
+      if (date.month ==
+          _selectedMonth.month &&
+          date.year ==
+              _selectedMonth.year) {
+
+        total +=
+            (income["amount"] as num)
+                .toDouble();
+      }
+    }
+
+    return total;
+  }
 
   Color _getCategoryColor(String category) {
     switch (category) {
@@ -310,7 +333,7 @@ class _AnalyticsReportState extends State<AnalyticsReport> {
                   ),
 
                   Text(
-                    "Total Income: RM ${AppDataManager.totalIncome.toStringAsFixed(2)}",
+                    "Total Income: RM ${monthlyTotalIncome.toStringAsFixed(2)}",
                   ),
 
                   Text(
@@ -318,7 +341,7 @@ class _AnalyticsReportState extends State<AnalyticsReport> {
                   ),
 
                   Text(
-                    "Available Balance: RM ${(AppDataManager.totalIncome - monthlyTotalExpense).toStringAsFixed(2)}",
+                    "Available Balance: RM ${(monthlyTotalIncome - monthlyTotalExpense).toStringAsFixed(2)}",
                   ),
                 ],
               ),
@@ -339,8 +362,24 @@ class _AnalyticsReportState extends State<AnalyticsReport> {
             ),
             const SizedBox(height: 12),
             _buildCategoryList(),
+
             const SizedBox(height: 32),
-            // Download Report Button
+
+            const Text(
+              'Monthly Expense Trend',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            _buildMonthlyExpenseChart(),
+
+            const SizedBox(height: 32),
+
+// Download Report Button
 
             const SizedBox(height: 32),
 
@@ -532,7 +571,92 @@ class _AnalyticsReportState extends State<AnalyticsReport> {
       }).toList(),
     );
   }
+  Widget _buildMonthlyExpenseChart() {
+
+    Map<String, double> monthlyTotals = {};
+
+    for (var expense in AppDataManager.expenseRecords) {
+
+      final date =
+      expense["date"] as DateTime;
+
+      final month =
+          "${_monthNames[date.month - 1].substring(0, 3)} ${date.year}";
+
+      monthlyTotals[month] =
+          (monthlyTotals[month] ?? 0) +
+              (expense["amount"] as num)
+                  .toDouble();
+    }
+
+    final data =
+    monthlyTotals.entries.toList();
+
+    if (data.isEmpty) {
+      return const Center(
+        child: Text(
+          "No expense data available",
+        ),
+      );
+    }
+
+    double maxValue = data
+        .map((e) => e.value)
+        .reduce(math.max);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius:
+        BorderRadius.circular(20),
+      ),
+      child: Column(
+        children: data.map((item) {
+
+          final percentage =
+              item.value / maxValue;
+
+          return Padding(
+            padding:
+            const EdgeInsets.symmetric(
+              vertical: 8,
+            ),
+            child: Row(
+              children: [
+
+                SizedBox(
+                  width: 70,
+                  child: Text(item.key),
+                ),
+
+                Expanded(
+                  child:
+                  LinearProgressIndicator(
+                    value: percentage,
+                    minHeight: 12,
+                    color: const Color(
+                      0xFFC2185B,
+                    ),
+                    backgroundColor:
+                    Colors.grey[200],
+                  ),
+                ),
+
+                const SizedBox(width: 10),
+
+                Text(
+                  "RM ${item.value.toStringAsFixed(0)}",
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
 }
+
 
 class PieChartPainter extends CustomPainter {
   final List<Map<String, dynamic>> categories;
