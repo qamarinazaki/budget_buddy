@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'account_manager.dart';
 import 'login_screen.dart';
 import 'dashboard.dart';
-/*import 'app_drawer.dart';*/
+
 
 class ProfileScreen extends StatelessWidget {
   final String userName;
@@ -325,6 +326,112 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
+  void _showChangePasswordDialog(
+      BuildContext context) {
+
+    final passwordController =
+    TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text(
+            "Change Password",
+          ),
+          content: TextField(
+            controller:
+            passwordController,
+            obscureText: true,
+            decoration:
+            const InputDecoration(
+              labelText:
+              "New Password",
+            ),
+          ),
+          actions: [
+
+            TextButton(
+              onPressed: () {
+                Navigator.pop(
+                  dialogContext,
+                );
+              },
+              child: const Text(
+                "Cancel",
+              ),
+            ),
+
+            ElevatedButton(
+              onPressed: () async {
+
+                final messenger =
+                ScaffoldMessenger.of(
+                  context,
+                );
+
+                if (passwordController
+                    .text
+                    .length <
+                    6) {
+
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        "Password must be at least 6 characters.",
+                      ),
+                    ),
+                  );
+                  return;
+                }
+
+                try {
+
+                  await FirebaseAuth
+                      .instance
+                      .currentUser
+                      ?.updatePassword(
+                    passwordController
+                        .text,
+                  );
+
+                  if (!context.mounted) {
+                    return;
+                  }
+
+                  Navigator.pop(
+                    dialogContext,
+                  );
+
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        "Password updated successfully.",
+                      ),
+                    ),
+                  );
+
+                } catch (e) {
+
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        "Failed to update password.",
+                      ),
+                    ),
+                  );
+                }
+              },
+              child: const Text(
+                "Save",
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -440,6 +547,13 @@ class ProfileScreen extends StatelessWidget {
                         'Name, Email, Phone',
                         Colors.blueAccent,
                         onTap: () => _showPersonalDetails(context),
+                      ),
+                      _buildMenuTile(
+                        Icons.lock_outline,
+                        'Change Password',
+                        'Update your account password',
+                        Colors.redAccent,
+                        onTap: () => _showChangePasswordDialog(context),
                       ),
                       _buildMenuTile(
                         Icons.edit_note,
