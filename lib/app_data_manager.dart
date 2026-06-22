@@ -49,7 +49,8 @@ class AppDataManager {
   static ValueNotifier<List<String>> usedVouchers =
   ValueNotifier([]);
 
-  static List<String> unlockedBadges = [];
+  static ValueNotifier<List<String>> unlockedBadges =
+  ValueNotifier([]);
 
   // =========================
   // INCOME
@@ -162,23 +163,24 @@ class AppDataManager {
 
   static void _checkBadges() {
 
-    if (rewardPoints.value >= 50 &&
-        !unlockedBadges.contains("Budget Boss")) {
+    final badges = [...unlockedBadges.value];
 
-      unlockedBadges.add("Budget Boss");
+    if (rewardPoints.value >= 50 &&
+        !badges.contains("Budget Boss")) {
+      badges.add("Budget Boss");
     }
 
     if (rewardPoints.value >= 100 &&
-        !unlockedBadges.contains("Vault Master")) {
-
-      unlockedBadges.add("Vault Master");
+        !badges.contains("Vault Master")) {
+      badges.add("Vault Master");
     }
 
     if (rewardPoints.value >= 150 &&
-        !unlockedBadges.contains("Value Voyage")) {
-
-      unlockedBadges.add("Value Voyage");
+        !badges.contains("Value Voyage")) {
+      badges.add("Value Voyage");
     }
+
+    unlockedBadges.value = badges;
   }
 
   // =========================
@@ -215,6 +217,6 @@ class AppDataManager {
 
     claimedVouchers.value = [];
     usedVouchers.value = [];
-    unlockedBadges.clear();
+    unlockedBadges.value = [];
   }
 }

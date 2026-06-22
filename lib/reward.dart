@@ -103,17 +103,22 @@ class RewardsPage extends StatelessWidget {
 
                     const SizedBox(height: 30),
 
-                    Column(
-                      children: AppDataManager.unlockedBadges.map((badge) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 20),
-                          child: _achievement(
-                            badge,
-                            1.0,
-                          ),
-                        );
-                      }).toList(),
-                    ),
+              ValueListenableBuilder<List<String>>(
+                valueListenable: AppDataManager.unlockedBadges,
+                builder: (context, badges, child) {
+                  return Column(
+                    children: badges.map((badge) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 20),
+                        child: _achievement(
+                          badge,
+                          1.0,
+                        ),
+                      );
+                    }).toList(),
+                  );
+                },
+              ),
 
                     const SizedBox(height: 60),
 
