@@ -271,7 +271,7 @@ class _MainDashboardState extends State<MainDashboard> {
                 Icons.forum,
                 color: Color(0xFFC2185B),
               ),
-              title: const Text("Community Forum"),
+              title: const Text("Community Tips Forum"),
               trailing: const Icon(Icons.arrow_forward_ios),
               onTap: () {
                 Navigator.push(
