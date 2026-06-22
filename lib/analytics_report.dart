@@ -592,6 +592,34 @@ class _AnalyticsReportState extends State<AnalyticsReport> {
     final data =
     monthlyTotals.entries.toList();
 
+    data.sort((a, b) {
+
+      final aParts = a.key.split(' ');
+      final bParts = b.key.split(' ');
+
+      final aMonth =
+      _monthNames.indexWhere(
+            (m) => m.startsWith(aParts[0]),
+      );
+
+      final bMonth =
+      _monthNames.indexWhere(
+            (m) => m.startsWith(bParts[0]),
+      );
+
+      final aDate = DateTime(
+        int.parse(aParts[1]),
+        aMonth + 1,
+      );
+
+      final bDate = DateTime(
+        int.parse(bParts[1]),
+        bMonth + 1,
+      );
+
+      return bDate.compareTo(aDate);
+    });
+
     if (data.isEmpty) {
       return const Center(
         child: Text(

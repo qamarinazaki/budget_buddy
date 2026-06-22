@@ -901,7 +901,7 @@ class _CommunityTipsForumState
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Share Your Tip', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black)),
+            const Text('Share Your Tip', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFFC2185B))),
             const SizedBox(height: 20),
             TextField(
               controller: titleController,

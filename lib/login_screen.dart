@@ -333,6 +333,89 @@ class _LoginScreenState
     );
   }
 
+  void _showForgotPasswordDialog() {
+
+    final resetEmailController =
+    TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text(
+            "Reset Password",
+          ),
+          content: TextField(
+            controller:
+            resetEmailController,
+            decoration:
+            const InputDecoration(
+              labelText:
+              "Email Address",
+            ),
+          ),
+          actions: [
+
+            TextButton(
+              onPressed: () {
+                Navigator.pop(
+                  dialogContext,
+                );
+              },
+              child: const Text(
+                "Cancel",
+              ),
+            ),
+
+            ElevatedButton(
+              onPressed: () async {
+
+                final messenger =
+                ScaffoldMessenger.of(context);
+
+                try {
+
+                  await FirebaseAuth.instance
+                      .sendPasswordResetEmail(
+                    email: resetEmailController.text.trim(),
+                  );
+
+                  if (!dialogContext.mounted) {
+                    return;
+                  }
+
+                  Navigator.pop(dialogContext);
+
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        "Password reset email sent.",
+                      ),
+                    ),
+                  );
+
+                } on FirebaseAuthException catch (e) {
+
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        e.message ??
+                            "Failed to send reset email.",
+                      ),
+                    ),
+                  );
+                }
+              },
+              child: const Text(
+                "Send",
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
 
@@ -426,6 +509,19 @@ class _LoginScreenState
                       border: OutlineInputBorder(
                         borderRadius:
                         BorderRadius.circular(15),
+                      ),
+                    ),
+                  ),
+
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: _showForgotPasswordDialog,
+                      child: const Text(
+                        "Forgot Password?",
+                        style: TextStyle(
+                          color: Colors.pink,
+                        ),
                       ),
                     ),
                   ),
