@@ -213,7 +213,7 @@ class _AnalyticsReportState extends State<AnalyticsReport> {
                       child: Container(
                         margin: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
-                          color: isSelected ? const Color(0xFFC2185B) : null,
+                          color: isSelected ? const Color(0xFFFFB6C1) : null,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         alignment: Alignment.center,
